@@ -71,7 +71,7 @@ def AlertFunction():
             time.sleep(0.1)
             for alert in alerts:
                 if alert["Sound"] == True:
-                    playsound('alert.wav')
+                    playsound('alert_sound.wav')
 
 
 def NoticeText():
