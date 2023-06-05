@@ -140,11 +140,17 @@ alerts.append({
 
 print(alerts)
 
-
 def input(key):
+    if key == 'right mouse down':
+        
+        box1 = Button(parent=scene, model='cube', color=color.brown, position=(4,5,5))
+        box1.on_click = Func(player.animate_position, box1.position, duration=.5, curve=curve.linear)
+
     if key == 'left mouse down':
+        
         e = PhysicsEntity(model='cube', color=color.azure, velocity=Vec3(0), position=player.position+Vec3(0,1.5,0)+player.forward, collider='sphere')
         e.velocity = (camera.forward + Vec3(0,.5,0)) * 10
+        
         # physics_entities.append(e)
 
     if key == "j":
