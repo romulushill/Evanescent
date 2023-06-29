@@ -1,6 +1,5 @@
-
 from imports.UE import *
-
+print("STARTING")
 from direct.stdpy import thread
 import threading
 from playsound import playsound
