@@ -4,6 +4,7 @@ from direct.stdpy import thread
 import threading
 from playsound import playsound
 import time
+print("Finished Imports")
 
 GameRunning = True
 app = Ursina(size=(1280,720))
