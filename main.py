@@ -1,4 +1,6 @@
-from ursina import *
+
+from imports.UE import *
+
 from direct.stdpy import thread
 import threading
 from playsound import playsound
@@ -38,14 +40,26 @@ class PhysicsEntity(Entity):
 
 
 
+class Panel(Entity):
 
-from ursina.shaders import lit_with_shadows_shader
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.parent = camera.ui
+        self.model = Quad()
+        self.color = Button.color
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+
+from imports.UE.shaders import lit_with_shadows_shader
 Entity.default_shader = lit_with_shadows_shader
 DirectionalLight().look_at(Vec3(1,-1,-1))
 
 ground = Entity(model='plane', scale=32, texture='white_cube', texture_scale=Vec2(32), collider='box')
 
-from ursina.prefabs.first_person_controller import FirstPersonController
+from imports.UE.prefabs.first_person_controller import FirstPersonController
 player = FirstPersonController()
 
 
@@ -71,8 +85,7 @@ def AlertFunction():
             time.sleep(0.1)
             for alert in alerts:
                 if alert["Sound"] == True:
-                    playsound('alert_sound.wav')
-
+                    playsound('alert_sound.wav') 
 
 def NoticeText():
     while True:
@@ -99,6 +112,27 @@ def NoticeText():
 #BEGINNING SEQUENCE#
 
 #Setup some components which will be necessary throughout the game#
+
+#Achievement Setup#
+uachievements = [{"Title":"Plutonium","Content":"You found plutonium","XP":43},{"Title":"Transmitter","Content":"Contact home? Or not...","XP":12},{"Title":"Mining","Content":"Some would say you have a miner problem.","XP":8},{"Title":"Showers","Content":"Houston is lost, get cover behind an object","XP":58},{"Title":"Oxygen","Content":"A discarded tank is found laying in the wastes","XP":73},{"Title":"Gills","Content":"Survived a whole minute with a leak in your suit","XP":51}]
+achievements = []
+achievement_thread_dictionary = {"Occurance":"","Quantity":"","":""}
+
+def achievement_handler(title):
+    print(title)
+    for achievement in achievements:
+        if achievement["Title"] == title:
+            return
+        else:
+            pass
+
+    for achievement in uachievements:
+        if achievement["Title"] == title:
+            achievements.append(achievement)
+            return
+
+
+achievement_management_thread = threading.Thread(target=achievement_handler, args=())
 
 #Active Alerts List#
 alerts = []
@@ -140,6 +174,39 @@ alerts.append({
 
 print(alerts)
 
+
+
+class ExitButton(Button):
+    def __init__(self, **kwargs):
+        super().__init__(
+            name = 'exit_button',
+            eternal = True,
+            origin = (.5, .5),
+            # text_origin = (-.5,-.5),
+            position = window.top_right,
+            z = -999,
+            scale = (.05, .025),
+            color = color.red.tint(-.2),
+            text = 'x',
+            **kwargs)
+
+
+    def on_click(self):
+        print("CALLED QUIT")
+        global GameRunning
+        GameRunning = False
+        application.quit()
+
+
+#Create objects to find#
+
+plutonium = Button(parent=scene, model='cube', color=color.brown, position=(6,5,5))
+plutonium.on_click = Func(achievement_handler, plutonium.position, duration=.5, curve=curve.linear)
+
+enter = TextField(max_lines=2, line_height=5, x=-.89, y=-.45)
+
+##
+
 def input(key):
     if key == 'right mouse down':
         
@@ -167,9 +234,116 @@ def input(key):
 sun = DirectionalLight()
 sun.look_at(Vec3(1,-1,-1))
 
+#ui2 = Panel(parent.ui)
 skybox_image = load_texture("black.png")
 Sky(texture=skybox_image)
-
+window.exit_button.enabled = False
+quitter = ExitButton()
 app.run()
 
 
+
+
+class InputField(Button):
+    def __init__(self, default_value='', label='', max_lines=1, character_limit=24, **kwargs):
+        super().__init__(scale=(.5, Text.size*2*max_lines), highlight_scale=1, pressed_scale=1, highlight_color=color.black, **kwargs)
+
+        for key, value in kwargs.items():
+            if 'scale' in key:
+                setattr(self, key, value)
+#
+        self.default_value = default_value
+        self.limit_content_to = None
+        self.hide_content = False   # if set to True, will display content as '*'. can also be set to character instead of True.
+
+        self.next_field = None
+        self.submit_on = None   # for example: self.submit_on = 'enter' will call self.on_submit when you press enter.
+        self.on_submit = None   # function to be called when you press self.submit_on.
+        self.on_value_changed = None
+
+        self.text_field = TextField(world_parent = self, x=-.45, y=.3, z=-.1, max_lines=max_lines, character_limit=character_limit, register_mouse_input = True)
+        destroy(self.text_field.bg)
+        self.text_field.bg = self
+
+        def render():
+            if self.limit_content_to:
+                org_length = len(self.text_field.text)
+                self.text_field.text = ''.join([e for e in self.text_field.text if e in self.limit_content_to])
+                self.text_field.cursor.x -= org_length - len(self.text_field.text)
+                self.text_field.cursor.x = max(0, self.text_field.cursor.x)
+
+            if self.hide_content:
+                replacement_char = '*'
+                if isinstance(self.hide_content, str):
+                    replacement_char = self.hide_content
+
+                self.text_field.text_entity.text = replacement_char * len(self.text_field.text)
+                return
+
+            if self.on_value_changed and not self.text_field.text_entity.text == self.text_field.text:
+                self.on_value_changed()
+            self.text_field.text_entity.text = self.text_field.text
+
+        self.text_field.render = render
+
+        self.text_field.scale *= 1.25
+        self.text_field.text = default_value
+        self.text_field.render()
+        self.text_field.shortcuts['indent'] = ('')
+        self.text_field.shortcuts['dedent'] = ('')
+
+        self.active = False
+
+        if label:
+            self.label = Text(str(label) + ':', parent = self, position = self.text_field.position, scale = 1.25)
+            self.text_field.x += 0.1 * (len(str(label)) + 1.0) / 6.0
+
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def input(self, key):
+        if key == 'tab' and self.text_field.cursor.y >= self.text_field.max_lines-1 and self.active:
+            self.active = False
+            if self.next_field:
+                mouse.position = self.next_field.get_position(relative_to=camera.ui)
+                invoke(setattr, self.next_field, 'active', True, delay=.01)
+
+        if self.active and self.submit_on and key == self.submit_on and self.on_submit:
+            self.on_submit()
+            self.active = False
+
+    @property
+    def text(self):
+        return self.text_field.text
+
+    @text.setter
+    def text(self, value):
+        self.text_field.text = ''
+        self.text_field.cursor.position = (0,0)
+        self.text_field.add_text(value, move_cursor=True)
+        self.text_field.render()
+
+    @property
+    def text_color(self):
+        return self.text_field.text_entity.color
+
+    @text_color.setter
+    def text_color(self, value):
+        self.text_field.text_entity.color = value
+
+
+    @property
+    def active(self):
+        return self.text_field.active
+
+    @active.setter
+    def active(self, value):
+        self.text_field.active = value
+        # if value == True:
+        #     # self.text_field.select_all()
+        #     invoke(self.text_field.select_all, delay=.1)
+        #     # self.text_field.input(' ')
+        #     # self.text_field.erase()
+
+   
